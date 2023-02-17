@@ -10,17 +10,6 @@ use std::sync::Mutex;
 #[macro_use]
 extern crate rocket;
 
-#[derive(Serialize, Deserialize, Debug)]
-struct GoogleBook {
-    volume_info: VolumeInfo,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct VolumeInfo {
-    title: String,
-    authors: Vec<String>,
-}
-
 #[derive(Deserialize, Debug, Serialize)]
 struct Error {
     message: String,
@@ -41,21 +30,6 @@ impl Book {
             author: author,
         }
     }
-
-    // fn to_string(&self) -> String {
-    //     format!(
-    //         "Name: {}\nAuthor: {}\nISBN: {}",
-    //         self.name, self.author, self.isbn
-    //     )
-    // }
-
-    // fn to_json(&self) -> Json<Book> {
-    //     Json(Book {
-    //         isbn: self.isbn.clone(),
-    //         name: self.name.clone(),
-    //         author: self.author.clone(),
-    //     })
-    // }
 }
 
 struct Books(Vec<Book>);
@@ -129,12 +103,6 @@ fn save_books(file_path: &str, books: Vec<Book>) {
         }
     }
 }
-
-// #[get("/")]
-// fn index(books: &State<Books>) -> String {
-//     // TODO
-//     "Hello, World!".to_string()
-// }
 
 async fn get_book(isbn: &str) -> Book {
     let url = format!(
