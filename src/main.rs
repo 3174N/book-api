@@ -89,7 +89,10 @@ impl Books {
                     message: "Book already exists in DB".to_string(),
                 });
             }
-            Err(_) => self.0.push(book),
+            Err(_) => {
+                self.0.push(book);
+                save_books("books.json", self.0.clone())
+            }
         }
         Ok(())
     }
@@ -115,6 +118,16 @@ impl Books {
 fn load_books(file_path: &str) -> Vec<Book> {
     let data = fs::read_to_string(file_path).unwrap();
     serde_json::from_str(&data).unwrap()
+}
+
+fn save_books(file_path: &str, books: Vec<Book>) {
+    let data = serde_json::to_string(&books).unwrap();
+    match fs::write(file_path, data) {
+        Ok(_) => {}
+        Err(e) => {
+            println!("Error writing file: {}", e);
+        }
+    }
 }
 
 // #[get("/")]
