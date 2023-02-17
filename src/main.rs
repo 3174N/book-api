@@ -65,10 +65,22 @@ impl Books {
             }
             Err(_) => {
                 self.0.push(book);
-                save_books("books.json", self.0.clone())
+                save_books("books.json", self.0.clone());
+                Ok(())
             }
         }
-        Ok(())
+    }
+
+    fn remove(&mut self, isbn: &str) -> Result<(), Error> {
+        match self.find(isbn.to_string()) {
+            Ok(book) => {
+                let index = self.0.iter().position(|b| b.isbn == book.isbn).unwrap();
+                self.0.remove(index);
+                save_books("books.json", self.0.clone());
+                Ok(())
+            }
+            Err(e) => Err(e),
+        }
     }
 
     fn search(&self, name: &str) -> Result<Vec<Book>, Error> {
@@ -158,11 +170,19 @@ async fn add(books: &State<Mutex<Books>>, isbn: &str) -> String {
     }
 }
 
+#[post("/remove", data = "<isbn>")]
+fn remove(books: &State<Mutex<Books>>, isbn: &str) -> String {
+    match books.lock().expect("Books locked").remove(isbn) {
+        Ok(()) => "Success".to_string(),
+        Err(e) => e.message,
+    }
+}
+
 #[launch]
 fn rocket() -> _ {
     let books = Books::new();
 
     rocket::build()
         .manage(Mutex::new(books))
-        .mount("/", routes![get_all, get, add, search])
+        .mount("/", routes![get_all, get, add, remove, search])
 }
