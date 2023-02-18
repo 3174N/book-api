@@ -22,16 +22,6 @@ struct Book {
     author: String,
 }
 
-impl Book {
-    fn new(isbn: String, name: String, author: String) -> Self {
-        Book {
-            isbn: isbn,
-            name: name,
-            author: author,
-        }
-    }
-}
-
 struct Books(Vec<Book>);
 
 impl Books {
@@ -130,17 +120,22 @@ async fn get_book(isbn: &str) -> Book {
 
     let name = volume_info["title"].as_str().unwrap();
     let author = volume_info["authors"][0].as_str().unwrap();
-    Book::new(isbn.to_string(), name.to_string(), author.to_string())
+
+    Book {
+        isbn: isbn.to_string(),
+        name: name.to_string(),
+        author: author.to_string(),
+    }
 }
 
 #[get("/")]
 fn get_all(books: &State<Mutex<Books>>) -> Json<Vec<Book>> {
-    Json(books.lock().expect("Books locked").get_all())
+    Json(books.lock().unwrap().get_all())
 }
 
 #[get("/get/<isbn>")]
 fn get(books: &State<Mutex<Books>>, isbn: &str) -> Result<Json<Book>, BadRequest<Json<Error>>> {
-    match books.lock().expect("Books locked").find(isbn.to_string()) {
+    match books.lock().unwrap().find(isbn.to_string()) {
         Ok(book) => Ok(Json(book)),
         Err(error) => Err(BadRequest(Some(Json(error)))),
     }
@@ -151,7 +146,7 @@ fn search(
     books: &State<Mutex<Books>>,
     q: &str,
 ) -> Result<Json<Vec<Book>>, BadRequest<Json<Error>>> {
-    match books.lock().expect("books locked").search(q) {
+    match books.lock().unwrap().search(q) {
         Ok(found) => Ok(Json(found)),
         Err(error) => Err(BadRequest(Some(Json(error)))),
     }
@@ -160,7 +155,7 @@ fn search(
 #[post("/add", data = "<isbn>")]
 async fn add(books: &State<Mutex<Books>>, isbn: &str) -> String {
     let book = get_book(isbn).await;
-    match books.lock().expect("Books locked").add(book) {
+    match books.lock().unwrap().add(book) {
         Ok(()) => {
             return "Success".to_string();
         }
@@ -172,7 +167,7 @@ async fn add(books: &State<Mutex<Books>>, isbn: &str) -> String {
 
 #[post("/remove", data = "<isbn>")]
 fn remove(books: &State<Mutex<Books>>, isbn: &str) -> String {
-    match books.lock().expect("Books locked").remove(isbn) {
+    match books.lock().unwrap().remove(isbn) {
         Ok(()) => "Success".to_string(),
         Err(e) => e.message,
     }
