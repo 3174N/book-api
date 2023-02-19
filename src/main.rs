@@ -11,7 +11,8 @@ use std::sync::Mutex;
 extern crate rocket;
 
 #[derive(Deserialize, Debug, Serialize)]
-struct Error {
+struct Response {
+    code: i8,
     message: String,
 }
 
@@ -33,23 +34,25 @@ impl Books {
         self.0.clone()
     }
 
-    fn find(&self, isbn: String) -> Result<Book, Error> {
+    fn find(&self, isbn: String) -> Result<Book, Response> {
         for book in &self.0 {
             if isbn == book.isbn {
                 return Ok(book.clone());
             }
         }
 
-        Err(Error {
+        Err(Response {
+            code: -1,
             message: format!("Book with ISBN {} not found", isbn),
         })
     }
 
-    fn add(&mut self, book: Book) -> Result<(), Error> {
+    fn add(&mut self, book: Book) -> Result<(), Response> {
         let isbn = book.isbn.clone();
         match self.find(isbn) {
             Ok(_) => {
-                return Err(Error {
+                return Err(Response {
+                    code: -1,
                     message: "Book already exists in DB".to_string(),
                 });
             }
@@ -61,7 +64,7 @@ impl Books {
         }
     }
 
-    fn remove(&mut self, isbn: &str) -> Result<(), Error> {
+    fn remove(&mut self, isbn: &str) -> Result<(), Response> {
         match self.find(isbn.to_string()) {
             Ok(book) => {
                 let index = self.0.iter().position(|b| b.isbn == book.isbn).unwrap();
@@ -73,7 +76,7 @@ impl Books {
         }
     }
 
-    fn search(&self, name: &str) -> Result<Vec<Book>, Error> {
+    fn search(&self, name: &str) -> Result<Vec<Book>, Response> {
         let found: Vec<Book> = self
             .0
             .iter()
@@ -82,7 +85,8 @@ impl Books {
             .collect();
 
         if found.is_empty() {
-            return Err(Error {
+            return Err(Response {
+                code: -1,
                 message: "No book found".to_string(),
             });
         }
@@ -134,7 +138,7 @@ fn get_all(books: &State<Mutex<Books>>) -> Json<Vec<Book>> {
 }
 
 #[get("/get/<isbn>")]
-fn get(books: &State<Mutex<Books>>, isbn: &str) -> Result<Json<Book>, BadRequest<Json<Error>>> {
+fn get(books: &State<Mutex<Books>>, isbn: &str) -> Result<Json<Book>, BadRequest<Json<Response>>> {
     match books.lock().unwrap().find(isbn.to_string()) {
         Ok(book) => Ok(Json(book)),
         Err(error) => Err(BadRequest(Some(Json(error)))),
@@ -145,7 +149,7 @@ fn get(books: &State<Mutex<Books>>, isbn: &str) -> Result<Json<Book>, BadRequest
 fn search(
     books: &State<Mutex<Books>>,
     q: &str,
-) -> Result<Json<Vec<Book>>, BadRequest<Json<Error>>> {
+) -> Result<Json<Vec<Book>>, BadRequest<Json<Response>>> {
     match books.lock().unwrap().search(q) {
         Ok(found) => Ok(Json(found)),
         Err(error) => Err(BadRequest(Some(Json(error)))),
@@ -153,23 +157,31 @@ fn search(
 }
 
 #[post("/add", data = "<isbn>")]
-async fn add(books: &State<Mutex<Books>>, isbn: &str) -> String {
+async fn add(
+    books: &State<Mutex<Books>>,
+    isbn: &str,
+) -> Result<Json<Response>, BadRequest<Json<Response>>> {
     let book = get_book(isbn).await;
     match books.lock().unwrap().add(book) {
-        Ok(()) => {
-            return "Success".to_string();
-        }
-        Err(error) => {
-            return error.message;
-        }
+        Ok(()) => Ok(Json(Response {
+            code: 0,
+            message: "Success".to_string(),
+        })),
+        Err(error) => Err(BadRequest(Some(Json(error)))),
     }
 }
 
 #[post("/remove", data = "<isbn>")]
-fn remove(books: &State<Mutex<Books>>, isbn: &str) -> String {
+fn remove(
+    books: &State<Mutex<Books>>,
+    isbn: &str,
+) -> Result<Json<Response>, BadRequest<Json<Response>>> {
     match books.lock().unwrap().remove(isbn) {
-        Ok(()) => "Success".to_string(),
-        Err(e) => e.message,
+        Ok(()) => Ok(Json(Response {
+            code: 0,
+            message: "Success".to_string(),
+        })),
+        Err(error) => Err(BadRequest(Some(Json(error)))),
     }
 }
 
